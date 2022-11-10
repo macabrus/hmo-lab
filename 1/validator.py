@@ -2,7 +2,7 @@ import sys
 import csv
 import collections
 
-instance = open(sys.argv[1],"r")
+instance = open(sys.argv[1],"r", encoding='cp1252')
 solution = open(sys.argv[2],"r")
 
 #read instance file

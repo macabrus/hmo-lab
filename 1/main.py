@@ -1,3 +1,4 @@
+import os
 import csv
 import random
 from pprint import pprint as pp
@@ -79,15 +80,17 @@ def valid_final_solution(players: list[Player]):
     return len(players) == 15
 
 def valid_solution(players: list[Player]):
+    if len(set(map(lambda p: p.id, players))) != len(players):
+        return False
     if sum(p.price for p in players) > 100:
         return False
     if not has_at_most(players, 'GK', 2):
         return False
+    if not has_at_most(players, 'FW', 3):
+        return False
     if not has_at_most(players, 'DEF', 5):
         return False
     if not has_at_most(players, 'MID', 5):
-        return False
-    if not has_at_most(players, 'FW', 3):
         return False
     club_occurences = Counter()
     for player in players:
@@ -110,30 +113,34 @@ def prepare_dataset(players):
         raw=players,
         clubs=group_by(attrgetter('club'), players, order=attrgetter('quality')),
         positions=group_by(attrgetter('position'), players, order=attrgetter('quality')),
-        club_positions=group_by(lambda p: (p.club, p.position), players, order=attrgetter('quality'))
+        club_positions=group_by(attrgetter('club', 'position'), players, order=attrgetter('quality'))
     )
 
-def weight_func(n):
-    #return [i for i in range(n, 0, -1)]
+def exp_weights(n): # exponentially descending
     return [2 ** -i for i in range(n)]
 
+def linear_weights(n): # linearly descending
+    return [i for i in range(n, 0, -1)]
 
 def generate_initial_solution(dataset: Dataset, max_iter=100):
     team = []
     # selecting n from every position
+    current_iter = 0
     for position, n in [('GK', 2), ('DEF', 5), ('MID', 5), ('FW', 3)]:
         len_before = len(team)
-        current_iter = 0
         while n > len(team) - len_before:
             #print(len(team))
             position_players = dataset.positions[position]
-            weights = weight_func(len(position_players))
+            weights = linear_weights(len(position_players))
+            #if len(team) >= 11: # flip weights if filled team
+            #    weights = weights[::-1]
             selection = random.choices(position_players, weights=weights, k=1)
             #print(selection)
             if valid_solution(team + selection):
                 team += selection
             current_iter += 1
             if current_iter >= max_iter:
+                print('exceeded')
                 return None
     return team
 
@@ -158,17 +165,26 @@ def grasp(dataset, original_solution, n_neighbourhood=1):
 
 def main():
     random.seed(1)
-    players = load_csv('1/2022_instance1.csv', Player)
+    f = '1/2022_instance3.csv'
+    instance, _ = os.path.splitext(os.path.basename(f))
+    players = load_csv(f, Player)
     dataset = prepare_dataset(players)
-    # for k, v in dataset.club_positions.items():
-    # pp(k)
-    # pp(v)
-    for i in range(30):
-        print('--- Generate initial solution ---')
+    best = None
+    while 1:
         team = generate_initial_solution(dataset)
+        if team is None:
+            continue # failed to find solution
         first_team = first_team_lineup(team)
+        team_score = score(first_team)
+        if  best is None or team_score > best:
+            best = team_score
+            print(f'Found new best team: {list(map(lambda p: p.id, first_team))}')
+            print(f'Score: {team_score}')
+            with open(f'best-{instance}.txt', 'w') as f:
+                first_team_ids = [p.id for p in first_team]
+                f.write(','.join(map(str, first_team_ids)) + '\n')
+                f.write(','.join(str(p.id) for p in team if p.id not in first_team_ids))
         # print(first_team)
-        print(score(first_team))
         # print('--- GRASP optimized solution ---')
         # grasp_team = grasp(dataset, team, n_neighbourhood=2)
         # grasp_first_team = first_team_lineup(team)
