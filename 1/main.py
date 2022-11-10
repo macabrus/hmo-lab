@@ -7,7 +7,7 @@ from attr import define
 from cattr import structure
 from collections import defaultdict, Counter
 from operator import attrgetter
-from itertools import combinations
+from itertools import combinations, product
 
 
 @define
@@ -144,46 +144,64 @@ def generate_initial_solution(dataset: Dataset, max_iter=100):
                 return None
     return team
 
+def unique(iterable):
+    seen = set()
+    for item in iterable:
+        if item not in seen:
+            seen.add(item)
+            yield item
+
 def grasp(dataset, original_solution, n_neighbourhood=1):
     original_score = score(original_solution)
-    locally_best = original_solution[:]
-    locally_best_score = original_score
-    denom = len(list(combinations(dataset.raw, n_neighbourhood)))
-    for e, substitutes in enumerate(combinations(dataset.raw, n_neighbourhood)):
-        print(f'step {e}/{denom}')
-        for indices in combinations(list(range(len(original_solution))), n_neighbourhood):
+    current_best = original_solution[:]
+    current_best_score = original_score
+    # current = 0
+    # total = len(list(combinations(range(len(original_solution)), n_neighbourhood)))
+    for solution_indices in combinations(range(len(original_solution)), n_neighbourhood):
+        # print(f'{current}/{total}')
+        # current += 1
+        positions = tuple(original_solution[i].position for i in solution_indices)
+        len_ranges = tuple(range(len(dataset.positions[p])) for p in positions)
+        for sample_indices in product(*len_ranges):
             tmp_solution = original_solution[:]
-            for substitute_index, index in enumerate(indices):
-                tmp_solution[index] = substitutes[substitute_index]
+            for sol_index, position, sample_index in zip(solution_indices, positions, sample_indices):
+                tmp_solution[sol_index] = dataset.positions[position][sample_index]
             if not valid_final_solution(tmp_solution):
                 continue
             tmp_score = score(tmp_solution)
-            if tmp_score > locally_best_score:
-                locally_best = tmp_solution
-                locally_best_score = tmp_score
-    return locally_best
+            if tmp_score > current_best_score:
+                print('Grasp managed to optimize!')
+                current_best = tmp_solution
+                current_best_score = tmp_score
+    return current_best
+
+def ids(players: list[Player]):
+    return [p.id for p in players]
 
 def main():
     random.seed(1)
     f = '1/2022_instance3.csv'
     instance, _ = os.path.splitext(os.path.basename(f))
-    players = load_csv(f, Player)
-    dataset = prepare_dataset(players)
-    best = None
+    dataset = prepare_dataset(load_csv(f, Player))
     while 1:
-        team = generate_initial_solution(dataset)
-        if team is None:
-            continue # failed to find solution
-        first_team = first_team_lineup(team)
-        team_score = score(first_team)
-        if  best is None or team_score > best:
-            best = team_score
-            print(f'Found new best team: {list(map(lambda p: p.id, first_team))}')
-            print(f'Score: {team_score}')
-            with open(f'best-{instance}.txt', 'w') as f:
-                first_team_ids = [p.id for p in first_team]
-                f.write(','.join(map(str, first_team_ids)) + '\n')
-                f.write(','.join(str(p.id) for p in team if p.id not in first_team_ids))
+        greedy_team = generate_initial_solution(dataset)
+        if greedy_team is None:  # failed to find solution
+            continue  # retry
+        greedy_lineup = first_team_lineup(greedy_team)
+        greedy_score = score(greedy_lineup)
+        grasp_team = grasp(dataset, greedy_team, n_neighbourhood=2)
+        grasp_lineup = first_team_lineup(grasp_team)
+        grasp_score = score(grasp_lineup)
+        print(f'Greedy: {greedy_score} {ids(greedy_team)}')
+        print(f'GRASP : {grasp_score} {ids(grasp_team)}')
+        # if  best is None or team_score > best:
+        #     best = team_score
+        #     print(f'Found new best team: {list(map(lambda p: p.id, first_team))}')
+        #     print(f'Score: {team_score}')
+        # with open(f'best-{instance}.txt', 'w') as f:
+        #     first_team_ids = [p.id for p in first_team]
+        #     f.write(','.join(map(str, first_team_ids)) + '\n')
+        #     f.write(','.join(str(p.id) for p in team if p.id not in first_team_ids))
         # print(first_team)
         # print('--- GRASP optimized solution ---')
         # grasp_team = grasp(dataset, team, n_neighbourhood=2)
