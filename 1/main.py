@@ -198,7 +198,6 @@ def main():
         grasp_lineup = first_team_lineup(grasp_team)
         grasp_score = score(grasp_lineup)
         print(f'GRASP : {grasp_score} {ids(grasp_team)}')
-        print(f'saving {solution_file}')
         with open(greedy_file, 'w') as f:
             greedy_lineup_ids = ids(greedy_lineup)
             f.write(','.join(map(str, greedy_lineup_ids)) + '\n')
