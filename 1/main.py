@@ -177,8 +177,10 @@ def main():
         instance, _ = os.path.splitext(os.path.basename(filename))
         dataset = prepare_dataset(load_csv(filename, Player))
         greedy_iters = 30_000 # tweak for longer execution
-        solution_file = f'best-greedy-{greedy_iters}-{instance}.txt'
-        if os.path.isfile(solution_file):
+        grasp_neighboorhood = 2
+        greedy_file = f'best-greedy-{greedy_iters}-{instance}.txt'
+        grasp_file = f'best-grasp-{grasp_neighboorhood}-{instance}.txt'
+        if os.path.isfile(greedy_file):
             continue
         best_team = None
         best_score = None
@@ -192,12 +194,16 @@ def main():
                 best_team = greedy_team
                 best_score = greedy_score
                 print(f'Current best greedy: {best_score} {ids(greedy_lineup)}')
-        grasp_team = grasp(dataset, best_team, n_neighbourhood=2) # bump for longer search
+        grasp_team = grasp(dataset, best_team, n_neighbourhood=grasp_neighboorhood) # bump for longer search
         grasp_lineup = first_team_lineup(grasp_team)
         grasp_score = score(grasp_lineup)
         print(f'GRASP : {grasp_score} {ids(grasp_team)}')
         print(f'saving {solution_file}')
-        with open(solution_file, 'w') as f:
+        with open(greedy_file, 'w') as f:
+            greedy_lineup_ids = ids(greedy_lineup)
+            f.write(','.join(map(str, greedy_lineup_ids)) + '\n')
+            f.write(','.join(str(p.id) for p in greedy_team if p.id not in greedy_lineup_ids))
+        with open(grasp_file, 'w') as f:
             grasp_lineup_ids = ids(grasp_lineup)
             f.write(','.join(map(str, grasp_lineup_ids)) + '\n')
             f.write(','.join(str(p.id) for p in grasp_team if p.id not in grasp_lineup_ids))
