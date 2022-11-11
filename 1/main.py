@@ -176,7 +176,7 @@ def main():
         print(f'--- running for {filename} ---')
         instance, _ = os.path.splitext(os.path.basename(filename))
         dataset = prepare_dataset(load_csv(filename, Player))
-        greedy_iters = 10_000 # tweak for longer execution
+        greedy_iters = 30_000 # tweak for longer execution
         solution_file = f'best-greedy-{greedy_iters}-{instance}.txt'
         if os.path.isfile(solution_file):
             continue
